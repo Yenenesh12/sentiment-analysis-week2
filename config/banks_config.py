@@ -1,10 +1,5 @@
-# config/banks_config.py
-"""
-Configuration file for Bank Reviews Analysis Project
-No environment variables required
-"""
-import os
 
+import os
 # Google Play Store App IDs for Ethiopian Banks
 APP_IDS = {
     'CBE': 'com.combanketh.mobilebanking',  # Commercial Bank of Ethiopia
@@ -29,14 +24,14 @@ SCRAPING_CONFIG = {
 
 # File Paths
 DATA_PATHS = {
-    'raw': 'data/raw_data',
-    'processed': 'data/processed_data',
-    'raw_reviews': 'data/raw_data/reviews_raw.csv',
-    'processed_reviews': 'data/processed_data/reviews_processed.csv',
-    'sentiment_results': 'data/processed_data/reviews_with_sentiment.csv',
-    'final_results': 'data/processed_data/reviews_final.csv',
-    'themes_results': 'data/processed_data/thematic_analysis.csv',
-    'visualizations': 'data/processed_data/visualizations'
+    'raw': 'data/raw data',
+    'processed': 'data/processed data',
+    'raw_reviews': 'data/raw data/reviews_raw.csv',
+    'processed_reviews': 'data/processed data/reviews_processed.csv',
+    'sentiment_results': 'data/processed data/reviews_with_sentiment.csv',
+    'final_results': 'data/processed data/reviews_final.csv',
+    'themes_results': 'data/processed data/thematic_analysis.csv',
+    'visualizations': 'data/processed data/visualizations'
 }
 
 # Analysis Configuration

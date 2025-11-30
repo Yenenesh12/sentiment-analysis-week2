@@ -1,9 +1,3 @@
-# main.py
-"""
-Main Execution Script for Ethiopian Bank Reviews Analysis
-Run this file to execute the complete pipeline
-"""
-
 import sys
 import os
 
@@ -11,7 +5,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from data_collection import PlayStoreScraper
-from data_preprocessing import ReviewPreprocessor
+from preprocessing import ReviewPreprocessor
 from sentiment_analysis import SentimentAnalyzer
 import pandas as pd
 
@@ -50,7 +44,7 @@ def main():
     
     if analysis_success:
         print("\n🎉 ANALYSIS COMPLETED SUCCESSFULLY!")
-        print("📁 Check the 'data/processed_data' folder for results")
+        print("📁 Check the 'data/processed data' folder for results")
     else:
         print("\n⚠️  Analysis completed with some issues")
 
