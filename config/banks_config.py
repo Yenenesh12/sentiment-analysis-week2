@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-import os
->>>>>>> task-1
 
 import os
 # Google Play Store App IDs for Ethiopian Banks
