@@ -2,6 +2,10 @@
 Data Collection Module for scraping bank app reviews from Google Play Store
 """
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 from google_play_scraper import app, reviews, Sort
 import time
@@ -9,11 +13,6 @@ from tqdm import tqdm
 import logging
 from typing import Dict, List, Optional
 from config.banks_config import BANKS_CONFIG
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
