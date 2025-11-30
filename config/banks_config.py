@@ -1,3 +1,4 @@
+# config/banks_config.py
 """
 Configuration file for Bank Reviews Analysis Project
 """
@@ -9,18 +10,16 @@ load_dotenv()
 
 # Google Play Store App IDs
 APP_IDS = {
-# env
     'CBE': os.getenv('CBE_APP_ID', 'com.combanketh.mobilebanking'),
     'Awash': os.getenv('AWASHPAY_APP_ID', 'com.sc.awashpay'),
     'Amharabank': os.getenv('AMHARABANK_APP_ID', 'com.amharabank.Aba_mobile_banking')
-
 }
 
 # Bank Names Mapping
 BANK_NAMES = {
     'CBE': 'Commercial Bank of Ethiopia',
     'Awash': 'Awash Bank',
-    'Amharabank': 'Amharabank'
+    'Amharabank': 'Amhara Bank'
 }
 
 # Scraping Configuration
@@ -42,11 +41,15 @@ DATA_PATHS = {
     'themes_results': 'data/processed data/thematic_analysis.csv'
 }
 
-
-
-
-
-
-
-
-
+# Analysis Configuration
+ANALYSIS_CONFIG = {
+    'min_review_length': 5,
+    'theme_keywords': {
+        'login_issues': ['login', 'sign in', 'password', 'account access', 'authentication'],
+        'transaction_issues': ['transfer', 'transaction', 'payment', 'send money', 'slow', 'failed'],
+        'app_performance': ['crash', 'slow', 'freeze', 'bug', 'error', 'not working'],
+        'ui_ux': ['interface', 'design', 'layout', 'user friendly', 'easy to use', 'complicated'],
+        'customer_service': ['support', 'help', 'service', 'response', 'contact'],
+        'features': ['feature', 'function', 'option', 'missing', 'should have']
+    }
+}
