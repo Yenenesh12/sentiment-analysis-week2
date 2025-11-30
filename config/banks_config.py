@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+import os
+>>>>>>> task-1
 
 import os
 # Google Play Store App IDs for Ethiopian Banks
@@ -49,3 +53,11 @@ ANALYSIS_CONFIG = {
     },
     'sentiment_threshold': 0.6
 }
+THEME_CATEGORIES = [
+    'User Interface & Experience',
+    'Transaction Performance',
+    'Account Access & Security',
+    'Customer Support',
+    'App Reliability & Bugs',
+    'Feature Requests'
+]
