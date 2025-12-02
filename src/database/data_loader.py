@@ -138,7 +138,7 @@ class ReviewDataLoader:
     
     def generate_sql_dump(self, output_path: str) -> None:
         import subprocess
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)  # Ensure folder exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)  
         
         dump_cmd = [
             'pg_dump',

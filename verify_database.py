@@ -1,137 +1,240 @@
-from src.database.database_connection import DatabaseConnection
-from src.database.data_loader import ReviewDataLoader
+import os
+import sys
+import pathlib
+sys.path.append(str(pathlib.Path(__file__).parent.resolve("src")))
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import pandas as pd
+import numpy as np
+from datetime import datetime
+import logging
+from typing import List, Dict, Any
+from src.database.database_connection import DatabaseConnection, create_tables, insert_banks_data
 
-def display_statistics(stats):
-    """Display database statistics in a formatted way"""
-    
-    print("\n" + "="*60)
-    print("DATABASE STATISTICS & VERIFICATION")
-    print("="*60)
-    
-    # Total reviews
-    total = stats['total_reviews'][0]['count']
-    print(f"\n📊 TOTAL REVIEWS: {total}")
-    print(f"   {'✅ PASS' if total >= 1000 else '⚠️  WARNING'}: {'>1000' if total >= 1000 else '400+'} reviews required")
-    
-    # Reviews per bank
-    print("\n🏦 REVIEWS PER BANK:")
-    df_bank = pd.DataFrame(stats['reviews_per_bank'])
-    for _, row in df_bank.iterrows():
-        status = "✅" if row['review_count'] >= 400 else "⚠️ "
-        print(f"   {status} {row['bank_name']}: {row['review_count']} reviews")
-    
-    # Ratings and sentiment
-    print("\n⭐ RATINGS & SENTIMENT ANALYSIS:")
-    df_ratings = pd.DataFrame(stats['average_rating_per_bank'])
-    for _, row in df_ratings.iterrows():
-        print(f"   {row['bank_name']}:")
-        print(f"     Average Rating: {row['avg_rating']}/5")
-        print(f"     Average Sentiment: {row['avg_sentiment']:.3f}")
-    
-    # Sentiment distribution
-    print("\n😊 SENTIMENT DISTRIBUTION:")
-    df_sentiment = pd.DataFrame(stats['sentiment_distribution'])
-    total_sentiment = df_sentiment['count'].sum()
-    
-    for _, row in df_sentiment.iterrows():
-        percentage = (row['count'] / total_sentiment * 100) if total_sentiment > 0 else 0
-        bar = "█" * int(percentage / 2)
-        print(f"   {row['sentiment_label'].upper():<10}: {row['count']:>4} reviews ({percentage:5.1f}%) {bar}")
-    
-    # Date range
-    if stats['date_range']:
-        date_info = stats['date_range'][0]
-        print(f"\n📅 DATE RANGE: {date_info['earliest']} to {date_info['latest']}")
-    
-    # Data quality checks
-    print("\n🔍 DATA QUALITY CHECKS:")
-    
-    # Check for null values
-    checks = [
-        ("Missing review text", "SELECT COUNT(*) FROM reviews WHERE review_text IS NULL OR review_text = ''"),
-        ("Missing ratings", "SELECT COUNT(*) FROM reviews WHERE rating IS NULL"),
-        ("Missing sentiment", "SELECT COUNT(*) FROM reviews WHERE sentiment_score IS NULL"),
-        ("Future dates", "SELECT COUNT(*) FROM reviews WHERE review_date > CURRENT_DATE")
-    ]
-    
-    db = DatabaseConnection()
-    try:
-        db.connect()
-        for check_name, query in checks:
-            result = db.execute_query(query)[0]['count']
-            status = "✅" if result == 0 else "⚠️ "
-            print(f"   {status} {check_name}: {result} issues found")
-    except Exception as e:
-        print(f"   ❌ Error running quality checks: {e}")
-    finally:
-        db.close()
-    
-    print("\n" + "="*60)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class ReviewDataLoader:
+    """Load processed review data into PostgreSQL database"""
+
+    def __init__(self, db_connection: DatabaseConnection):
+        self.db = db_connection
+
+    def load_csv_data(self, csv_path: str) -> pd.DataFrame:
+        """Load and validate CSV data"""
+        try:
+            df = pd.read_csv(csv_path)
+
+            # Data validation
+            required_columns = ['bank_name', 'review_text', 'rating', 'review_date',
+                                'sentiment_label', 'sentiment_score']
+
+            missing_cols = [col for col in required_columns if col not in df.columns]
+            if missing_cols:
+                raise ValueError(f"Missing required columns: {missing_cols}")
+
+            # Clean data
+            df['review_text'] = df['review_text'].fillna('').astype(str)
+            df['sentiment_label'] = df['sentiment_label'].fillna('neutral').astype(str)
+            df['sentiment_score'] = pd.to_numeric(df['sentiment_score'], errors='coerce').fillna(0)
+            df['rating'] = pd.to_numeric(df['rating'], errors='coerce').fillna(0)
+            df['review_date'] = pd.to_datetime(df['review_date'], errors='coerce').dt.date
+
+            logger.info(f"Loaded {len(df)} records from {csv_path}")
+            return df
+
+        except Exception as e:
+            logger.error(f"Failed to load CSV data: {e}")
+            raise
+
+    def get_bank_mapping(self) -> Dict[str, int]:
+        """Get mapping of normalized bank names to bank_ids"""
+        try:
+            query = "SELECT bank_id, bank_name FROM banks"
+            results = self.db.execute_query(query)
+            # Normalize bank names (lowercase + strip)
+            return {row['bank_name'].strip().lower(): row['bank_id'] for row in results}
+        except Exception as e:
+            logger.error(f"Failed to get bank mapping: {e}")
+            return {}
+
+    def insert_or_create_bank(self, bank_name: str) -> int:
+        """Insert a new bank if missing and return its bank_id"""
+        try:
+            insert_query = "INSERT INTO banks (bank_name) VALUES (%s) RETURNING bank_id"
+            with self.db.connection.cursor() as cursor:
+                cursor.execute(insert_query, (bank_name,))
+                bank_id = cursor.fetchone()[0]
+                self.db.connection.commit()
+                logger.info(f"Inserted new bank: {bank_name} with ID {bank_id}")
+                return bank_id
+        except Exception as e:
+            logger.error(f"Failed to insert new bank '{bank_name}': {e}")
+            self.db.connection.rollback()
+            return None
+
+    def insert_reviews(self, df: pd.DataFrame, batch_size: int = 100) -> int:
+        """Insert reviews in batches for better performance with automatic bank creation"""
+
+        bank_mapping = self.get_bank_mapping()
+        records = []
+
+        for _, row in df.iterrows():
+            row_bank_name = str(row['bank_name']).strip()
+            normalized_name = row_bank_name.lower()
+            bank_id = bank_mapping.get(normalized_name)
+
+            if not bank_id:
+                # Bank missing: create it
+                bank_id = self.insert_or_create_bank(row_bank_name)
+                if bank_id:
+                    bank_mapping[normalized_name] = bank_id
+                else:
+                    logger.warning(f"Failed to insert bank for review: {row_bank_name}")
+                    continue
+
+            record = (
+                bank_id,
+                row['review_text'][:5000],
+                float(row['rating']),
+                row['review_date'],
+                row['sentiment_label'],
+                float(row['sentiment_score']),
+                'Google Play Store',
+                row.get('cleaned_text', '')[:5000],
+                row.get('keywords', '').split(',')[:10] if isinstance(row.get('keywords'), str) else [],
+                row.get('theme', 'general')
+            )
+            records.append(record)
+
+        insert_query = """
+        INSERT INTO reviews 
+        (bank_id, review_text, rating, review_date, sentiment_label, 
+         sentiment_score, source, cleaned_text, keywords, theme)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        total_inserted = 0
+        for i in range(0, len(records), batch_size):
+            batch = records[i:i + batch_size]
+            try:
+                with self.db.connection.cursor() as cursor:
+                    cursor.executemany(insert_query, batch)
+                    self.db.connection.commit()
+                    batch_inserted = len(batch)
+                    total_inserted += batch_inserted
+                    logger.info(f"Inserted batch {i//batch_size + 1}: {batch_inserted} records")
+            except Exception as e:
+                logger.error(f"Failed to insert batch {i//batch_size + 1}: {e}")
+                self.db.connection.rollback()
+
+        logger.info(f"Total reviews inserted: {total_inserted}")
+        return total_inserted
+
+    def verify_data_integrity(self) -> Dict[str, Any]:
+        """Run integrity checks and return statistics"""
+
+        queries = {
+            'total_reviews': "SELECT COUNT(*) as count FROM reviews",
+            'reviews_per_bank': """
+                SELECT b.bank_name, COUNT(r.review_id) as review_count
+                FROM banks b
+                LEFT JOIN reviews r ON b.bank_id = r.bank_id
+                GROUP BY b.bank_name
+                ORDER BY review_count DESC
+            """,
+            'average_rating_per_bank': """
+                SELECT b.bank_name, 
+                       COALESCE(ROUND(AVG(r.rating)::numeric, 2), 0) as avg_rating,
+                       COALESCE(ROUND(AVG(r.sentiment_score)::numeric, 3), 0) as avg_sentiment
+                FROM banks b
+                LEFT JOIN reviews r ON b.bank_id = r.bank_id
+                GROUP BY b.bank_name
+                ORDER BY avg_rating DESC
+            """,
+            'sentiment_distribution': """
+                SELECT sentiment_label, COUNT(*) as count,
+                       ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
+                FROM reviews
+                GROUP BY sentiment_label
+                ORDER BY count DESC
+            """,
+            'date_range': """
+                SELECT MIN(review_date) as earliest, MAX(review_date) as latest
+                FROM reviews
+            """
+        }
+
+        results = {}
+        for name, query in queries.items():
+            try:
+                results[name] = self.db.execute_query(query)
+            except Exception as e:
+                logger.error(f"Failed to execute {name} query: {e}")
+                results[name] = []
+
+        return results
+
+    def generate_sql_dump(self, output_path: str) -> None:
+        """Generate SQL dump of the database"""
+        import subprocess
+
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        dump_cmd = [
+            'pg_dump',
+            '-h', self.db.config['host'],
+            '-U', self.db.config['user'],
+            '-d', self.db.config['dbname'],
+            '-f', output_path,
+            '--schema-only'
+        ]
+
+        try:
+            env = os.environ.copy()
+            env['PGPASSWORD'] = self.db.config['password']
+            subprocess.run(dump_cmd, env=env, check=True)
+            logger.info(f"SQL dump generated: {output_path}")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to generate SQL dump: {e}")
+            raise
+
 
 def main():
-    """Main verification function"""
-    
-    print("🔍 Verifying Database Setup for Task 3")
-    print("   Minimum Requirements:")
-    print("   - PostgreSQL database with Banks and Reviews tables ✓")
-    print("   - >1000 review entries (400 minimum) ✓")
-    print("   - Proper schema with foreign keys ✓")
-    print("   - Data integrity verification ✓")
-    
+    CSV_PATH = r"C:\Users\admin\sentiment-analysis-week2\data\processed_data\reviews_with_sentiment.csv"
+    SQL_DUMP_PATH = "../data/sql_dump/bank_reviews.sql"
+
     db = DatabaseConnection()
-    
     try:
-        # Connect to database
         if not db.connect():
-            print("❌ Failed to connect to database")
-            return
-        
-        # Create loader instance
+            raise ConnectionError("Failed to connect to database")
+
+        create_tables(db)
+        insert_banks_data(db)
+
         loader = ReviewDataLoader(db)
-        
-        # Get statistics
+        df = loader.load_csv_data(CSV_PATH)
+
+        if len(df) < 400:
+            logger.warning(f"Only {len(df)} reviews available, minimum 400 required")
+
+        inserted_count = loader.insert_reviews(df)
+        logger.info(f"✅ Reviews inserted: {inserted_count}")
+
         stats = loader.verify_data_integrity()
-        
-        # Display results
-        display_statistics(stats)
-        
-        # Overall assessment
-        total_reviews = stats['total_reviews'][0]['count']
-        
-        print("\n📋 OVERALL ASSESSMENT:")
-        if total_reviews >= 1000:
-            print("   ✅ EXCELLENT: All requirements exceeded")
-            print(f"   - Total reviews: {total_reviews} (>1000 required)")
-        elif total_reviews >= 400:
-            print("   ✅ SATISFACTORY: Minimum requirements met")
-            print(f"   - Total reviews: {total_reviews} (400 minimum)")
-        else:
-            print("   ❌ INCOMPLETE: Minimum requirements not met")
-            print(f"   - Total reviews: {total_reviews} (400 minimum required)")
-        
-        # Check table structure
-        print("\n🗄️  TABLE STRUCTURE VERIFICATION:")
-        structure_query = """
-        SELECT 
-            table_name,
-            COUNT(*) as column_count,
-            STRING_AGG(column_name, ', ') as columns
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-        GROUP BY table_name
-        ORDER BY table_name
-        """
-        
-        structure = db.execute_query(structure_query)
-        for table in structure:
-            print(f"   📑 {table['table_name']}: {table['column_count']} columns")
-        
+        print("\nDATA INTEGRITY STATS:")
+        print(stats)
+
+        loader.generate_sql_dump(SQL_DUMP_PATH)
+        print(f"\nSQL dump saved to: {SQL_DUMP_PATH}")
+
     except Exception as e:
-        print(f"❌ Verification failed: {e}")
-    
+        logger.error(f"Main execution failed: {e}")
+        raise
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     main()
