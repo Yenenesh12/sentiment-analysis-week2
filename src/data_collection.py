@@ -1,9 +1,3 @@
-# src/data_collection.py
-"""
-Enhanced Google Play Store Review Scraper
-With better error handling and multiple fallback options
-"""
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
