@@ -1,11 +1,11 @@
 -- Create database
 CREATE DATABASE bank_reviews;
 
--- Connect to database
-\c bank_reviews;
+-- Connect only if using psql terminal:
+-- \c bank_reviews
 
 -- Create Banks table
-CREATE TABLE banks (
+CREATE TABLE IF NOT EXISTS banks (
     bank_id SERIAL PRIMARY KEY,
     bank_name VARCHAR(100) NOT NULL,
     app_name VARCHAR(100) NOT NULL,
@@ -13,14 +13,14 @@ CREATE TABLE banks (
 );
 
 -- Create Reviews table
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
     review_id SERIAL PRIMARY KEY,
     bank_id INTEGER REFERENCES banks(bank_id) ON DELETE CASCADE,
     review_text TEXT,
-    rating FLOAT,
+    rating REAL,
     review_date DATE,
     sentiment_label VARCHAR(50),
-    sentiment_score FLOAT,
+    sentiment_score REAL,
     source VARCHAR(50),
     cleaned_text TEXT,
     keywords TEXT[],
@@ -28,14 +28,14 @@ CREATE TABLE reviews (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for performance
-CREATE INDEX idx_reviews_bank_id ON reviews(bank_id);
-CREATE INDEX idx_reviews_sentiment ON reviews(sentiment_score);
-CREATE INDEX idx_reviews_date ON reviews(review_date);
-CREATE INDEX idx_banks_name ON banks(bank_name);
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_reviews_bank_id ON reviews(bank_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_sentiment ON reviews(sentiment_score);
+CREATE INDEX IF NOT EXISTS idx_reviews_date ON reviews(review_date);
+CREATE INDEX IF NOT EXISTS idx_banks_name ON banks(bank_name);
 
--- Create view for analysis
-CREATE VIEW bank_sentiment_summary AS
+-- View
+CREATE OR REPLACE VIEW bank_sentiment_summary AS
 SELECT 
     b.bank_name,
     COUNT(r.review_id) as total_reviews,
