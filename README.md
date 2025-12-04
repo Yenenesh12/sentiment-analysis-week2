@@ -384,6 +384,6 @@ All tasks (1-4) are complete.
 
 Last Updated: December 2025
 
-Repository: https://github.com/Saronzeleke/sentiment-analysis-week2
+Repository: https://github.com/Yenenesh12/sentiment-analysis-week2
 
 Contact: For questions regarding implementation or analysis, please open an issue on GitHub.
