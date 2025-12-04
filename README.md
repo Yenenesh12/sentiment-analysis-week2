@@ -2,7 +2,7 @@
 
 ## 📊 Project Overview
 
-This project analyzes customer reviews from Google Play Store for three major Ethiopian banks to identify satisfaction drivers and pain 
+This project analyzes customer reviews from Google Play Store for three major Ethiopian banks to identify satisfaction drivers and pain
 
 points in their mobile banking applications.
 
@@ -50,7 +50,7 @@ ethiopian-bank-reviews-analysis/
 
 1. **Clone the repository**
 
- [git clone https://github.com/Saronzeleke/sentiment-analysis-week2.git]
+ [git clone https://github.com/Yenenesh12/sentiment-analysis-week2.git]
 
    cd sentiment-analysis-week2
 
