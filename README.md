@@ -83,7 +83,7 @@ PostgreSQL 14 or higher
 
 1. Clone the repository:
 
-git clone https://github.com/Saronzeleke/sentiment-analysis-week2.git
+git clone https://github.com/Yenenesh12/sentiment-analysis-week2.git
 
 cd sentiment-analysis-week2
 
