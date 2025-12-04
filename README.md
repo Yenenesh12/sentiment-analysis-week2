@@ -1,11 +1,11 @@
 ## Banking Apps Sentiment Analysis Project
 
 ## Project Overview
-This project conducts a comprehensive sentiment analysis of customer reviews for mobile banking applications from three major Ethiopian 
+This project conducts a comprehensive sentiment analysis of customer reviews for mobile banking applications from three major Ethiopian
 
 banks: Commercial Bank of Ethiopia (CBE), Bank of Abyssinia (BOA), and Dashen Bank. Utilizing reviews scraped from the Google Play Store,
 
- the project implements a full data science pipeline, encompassing data collection, preprocessing, sentiment and thematic analysis, 
+ the project implements a full data science pipeline, encompassing data collection, preprocessing, sentiment and thematic analysis,
 
 database implementation, and derivation of actionable insights.
 
@@ -83,7 +83,7 @@ PostgreSQL 14 or higher
 
 1. Clone the repository:
 
-git clone https://github.com/Saronzeleke/sentiment-analysis-week2.git
+git clone https://github.com/Yenenesh12/sentiment-analysis-week2.git
 
 cd sentiment-analysis-week2
 
@@ -131,7 +131,7 @@ Save the processed data as a CSV file for further analysis.
 
 ## Implementation:
 
-Utilizes src.data.scraper.GooglePlayScraper for data collection and src.data.preprocessor.DataCleaner for preprocessing. The cleaned 
+Utilizes src.data.scraper.GooglePlayScraper for data collection and src.data.preprocessor.DataCleaner for preprocessing. The cleaned
 
 dataset is stored in data/processed/banking_reviews.csv.
 
@@ -212,7 +212,7 @@ Run python scripts/task3_database.py or python setup_database.py to create the d
 
 Total reviews: SELECT COUNT(*) FROM reviews; (Expected: 1,200+).
 
-Reviews per bank: SELECT b.bank_name, COUNT(r.review_id) FROM banks b LEFT JOIN reviews r ON b.bank_id = r.bank_id GROUP BY b.bank_name; 
+Reviews per bank: SELECT b.bank_name, COUNT(r.review_id) FROM banks b LEFT JOIN reviews r ON b.bank_id = r.bank_id GROUP BY b.bank_name;
 
 (Expected: 400+ per bank).
 
@@ -330,7 +330,7 @@ Task      ,Requirement,      Status,           Evidence
 
 ## Generated Reports:
 
-reports/final_report.md: Includes executive summary, performance comparison, drivers/pain points, recommendations, ethical 
+reports/final_report.md: Includes executive summary, performance comparison, drivers/pain points, recommendations, ethical
 
 considerations, and implementation roadmap.
 
